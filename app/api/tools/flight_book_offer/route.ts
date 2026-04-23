@@ -24,7 +24,7 @@ import {
   getStoredOffer,
   itineraryHash,
 } from "@/lib/duffel-stub";
-import { badRequestFromZod, errorResponse } from "@/lib/http";
+import { badRequestFromZod, errorResponse, stripEnvelopeKeys } from "@/lib/http";
 
 const PassengerSchema = z
   .object({
@@ -73,7 +73,7 @@ export async function POST(req: Request) {
     return errorResponse("bad_request", 400, "Body must be valid JSON.");
   }
 
-  const parsed = BodySchema.safeParse(raw);
+  const parsed = BodySchema.safeParse(stripEnvelopeKeys(raw));
   if (!parsed.success) return badRequestFromZod(parsed.error);
 
   const { offer_id, summary_hash } = parsed.data;

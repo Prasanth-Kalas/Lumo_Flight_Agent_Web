@@ -10,7 +10,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { searchOffers } from "@/lib/duffel-stub";
-import { badRequestFromZod, errorResponse } from "@/lib/http";
+import { badRequestFromZod, errorResponse, stripEnvelopeKeys } from "@/lib/http";
 
 // IATA code: 3 uppercase letters. We also accept lowercase and uppercase it.
 const iata = z
@@ -59,7 +59,7 @@ export async function POST(req: Request) {
     return errorResponse("bad_request", 400, "Body must be valid JSON.");
   }
 
-  const parsed = BodySchema.safeParse(raw);
+  const parsed = BodySchema.safeParse(stripEnvelopeKeys(raw));
   if (!parsed.success) return badRequestFromZod(parsed.error);
 
   // Reject same-airport O/D — a common LLM hallucination.

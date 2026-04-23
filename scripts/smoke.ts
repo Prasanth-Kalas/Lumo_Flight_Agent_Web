@@ -85,8 +85,8 @@ async function main() {
   const openapi = await openapiRes.json();
   const bridge = openApiToClaudeTools(manifest.agent_id, openapi);
   assert(
-    "bridge exposes exactly 3 tools",
-    bridge.tools.length === 3,
+    "bridge exposes exactly 4 tools",
+    bridge.tools.length === 4,
     bridge.tools.map((t) => t.name).join(", "),
   );
 
@@ -94,6 +94,7 @@ async function main() {
     "flight_search_offers",
     "flight_price_offer",
     "flight_book_offer",
+    "flight_cancel_booking",
   ];
   for (const name of expectedTools) {
     const r = bridge.routing[name];
