@@ -85,6 +85,19 @@ export function buildManifest(): AgentManifest {
     // registrations are per-state and we're only filed in CA + WA.
     supported_regions: ["US"],
 
+    // Contract self-declaration. Bump `sdk_version` when we rebuild
+    // against a newer SDK — the shell's registry will warn if this
+    // drifts from the package actually installed at runtime.
+    // `implements_cancellation` is true now that flight_cancel_booking
+    // (task #31) is live; the SDK's openapi bridge enforces the
+    // bidirectional link (`flight_book_offer` ↔ `flight_cancel_booking`)
+    // at registry load.
+    capabilities: {
+      sdk_version: "0.2.0-rc.2",
+      supports_compound_bookings: true,
+      implements_cancellation: true,
+    },
+
     owner_team: "agents-platform",
   });
 }

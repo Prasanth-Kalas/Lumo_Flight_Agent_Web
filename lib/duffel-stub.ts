@@ -100,6 +100,30 @@ function sweepExpired(now: number) {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
+// Booking store
+//
+// Unlike offers, bookings do NOT expire from our perspective — the record
+// locator lives with the airline for the life of the ticket. We persist
+// what we need for idempotent cancellation: the price to refund and a
+// simple status field so a second cancel returns "already_cancelled"
+// instead of double-refunding.
+//
+// This is an in-memory dev stub; production swaps it for a Duffel
+// `orders.get(order_id)` call (or our own Postgres mirror of same).
+// ──────────────────────────────────────────────────────────────────────────
+
+type BookingStatus = "confirmed" | "cancelled";
+
+interface StoredBooking {
+  result: BookResult;
+  status: BookingStatus;
+  booked_at: number;
+  cancelled_at: number | null;
+}
+
+const bookingStore = new Map<string, StoredBooking>();
+
+// ──────────────────────────────────────────────────────────────────────────
 // Static reference data used to give the stubs some texture
 // ──────────────────────────────────────────────────────────────────────────
 
@@ -277,15 +301,98 @@ export function bookOffer(
   const booking_id = `bk_stub_${randomBytes(8).toString("hex")}`;
   const pnr = randomBytes(3).toString("hex").toUpperCase();
 
+  const result: BookResult = {
+    booking_id,
+    pnr,
+    total_amount: offer.total_amount,
+    total_currency: offer.total_currency,
+    itinerary: offer.slices,
+    e_ticket_urls: [`https://stub.tickets.lumo.rentals/${booking_id}.pdf`],
+  };
+
+  // Persist so flight_cancel_booking can look this up later. In prod
+  // we'd also stash the idempotency_key → booking_id mapping here.
+  bookingStore.set(booking_id, {
+    result,
+    status: "confirmed",
+    booked_at: Date.now(),
+    cancelled_at: null,
+  });
+
+  return { ok: true, result };
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Cancellation
+//
+// Contract (matches `x-lumo-cancel-for: flight_book_offer` in openapi.json):
+//   - cost-tier: free  (no money moves at the agent/tool layer; the
+//     refund is a provider-side reversal and we surface the amount)
+//   - requires-confirmation: false  (the Saga must never re-prompt the
+//     user during rollback — the SDK's validator enforces this)
+//   - compensation-kind: best-effort  (Duffel may mark the fare as
+//     non-refundable; we still cancel the PNR but refund_amount will be
+//     "0.00" in that case)
+//
+// Idempotency: calling cancel twice on the same booking_id returns
+// `already_cancelled` instead of double-processing. The Saga retries
+// on transient failure, so idempotency here is a correctness property,
+// not a nice-to-have.
+// ──────────────────────────────────────────────────────────────────────────
+
+export interface CancelInput {
+  booking_id: string;
+  reason?: string;
+}
+
+export interface CancelResult {
+  booking_id: string;
+  status: "cancelled";
+  refund_amount: string;
+  refund_currency: string;
+  cancelled_at: string; // ISO 8601
+}
+
+export function getStoredBooking(booking_id: string): StoredBooking | null {
+  return bookingStore.get(booking_id) ?? null;
+}
+
+export function cancelBooking(
+  input: CancelInput,
+):
+  | { ok: true; result: CancelResult }
+  | { ok: false; reason: "not_found" | "already_cancelled" } {
+  const entry = bookingStore.get(input.booking_id);
+  if (!entry) {
+    return { ok: false, reason: "not_found" };
+  }
+  if (entry.status === "cancelled") {
+    return { ok: false, reason: "already_cancelled" };
+  }
+
+  // Stub policy: treat every fare as fully refundable. Real Duffel tells
+  // us per-booking whether the fare is refundable and what the refund
+  // amount actually is; when we wire in the live SDK this becomes the
+  // place where "best-effort" kicks in (refund_amount may be "0.00").
+  const cancelled_at = new Date();
+  const updated: StoredBooking = {
+    ...entry,
+    status: "cancelled",
+    cancelled_at: cancelled_at.getTime(),
+  };
+  bookingStore.set(input.booking_id, updated);
+
+  // Reason field is captured for the audit log in prod. Unused in stub.
+  void input.reason;
+
   return {
     ok: true,
     result: {
-      booking_id,
-      pnr,
-      total_amount: offer.total_amount,
-      total_currency: offer.total_currency,
-      itinerary: offer.slices,
-      e_ticket_urls: [`https://stub.tickets.lumo.rentals/${booking_id}.pdf`],
+      booking_id: input.booking_id,
+      status: "cancelled",
+      refund_amount: entry.result.total_amount,
+      refund_currency: entry.result.total_currency,
+      cancelled_at: cancelled_at.toISOString(),
     },
   };
 }

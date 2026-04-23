@@ -129,6 +129,10 @@ export async function GET() {
           "x-lumo-tool": true,
           "x-lumo-cost-tier": "money",
           "x-lumo-requires-confirmation": "structured-itinerary",
+          // Every money tool must declare its cancel counterpart. The
+          // SDK's openApiToClaudeTools refuses to build the bridge if
+          // this points at a non-existent op or is missing entirely.
+          "x-lumo-cancels": "flight_cancel_booking",
           // Intersection with the agent's `pii_scope` determines what
           // the router actually forwards. `passport` is conditional on
           // the route (international); the book handler enforces.
@@ -160,6 +164,50 @@ export async function GET() {
             "402": { $ref: "#/components/responses/PaymentFailed" },
             "409": { $ref: "#/components/responses/ConfirmationRequired" },
             "410": { $ref: "#/components/responses/OfferExpired" },
+          },
+        },
+      },
+
+      "/api/tools/flight_cancel_booking": {
+        post: {
+          operationId: "flight_cancel_booking",
+          summary: "Cancel a prior flight booking (Saga rollback)",
+          description:
+            "Cancel a booking created by `flight_book_offer`. This is the compensating action the Saga invokes during compound-booking rollback — it must NOT re-prompt the user. Idempotent: a repeat call with the same booking_id returns 200 with `already_cancelled: true` instead of double-processing. For non-refundable fares the PNR is still cancelled but `refund_amount` may be '0.00' — the tool is `compensation-kind: best-effort`, not `perfect`.",
+
+          "x-lumo-tool": true,
+          "x-lumo-cost-tier": "free",
+          // MUST be literal false. The SDK's cancellation-protocol
+          // validator rejects any cancel tool that would gate on
+          // confirmation — the Saga has no user in the loop.
+          "x-lumo-requires-confirmation": false,
+          // Bidirectional link back to the forward money tool. Both
+          // pointers must be present and agree; the SDK validator
+          // rejects a one-sided link at registry boot.
+          "x-lumo-cancel-for": "flight_book_offer",
+          "x-lumo-compensation-kind": "best-effort",
+          "x-lumo-pii-required": [],
+          "x-lumo-intent-tags": ["cancel_flight"],
+
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/FlightCancelRequest" },
+              },
+            },
+          },
+          responses: {
+            "200": {
+              description: "Booking cancelled (or idempotent repeat)",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/FlightCancelResponse" },
+                },
+              },
+            },
+            "400": { $ref: "#/components/responses/BadRequest" },
+            "404": { $ref: "#/components/responses/BookingNotFound" },
           },
         },
       },
@@ -404,6 +452,46 @@ export async function GET() {
           },
         },
 
+        FlightCancelRequest: {
+          type: "object",
+          additionalProperties: false,
+          required: ["booking_id"],
+          properties: {
+            booking_id: {
+              type: "string",
+              minLength: 1,
+              description: "booking_id returned by a prior flight_book_offer call",
+            },
+            reason: {
+              type: "string",
+              maxLength: 512,
+              description:
+                "Free-form context captured in the audit log. Saga rollbacks typically pass something like 'trip_rollback:hotel_leg_failed'.",
+            },
+          },
+        },
+        FlightCancelResponse: {
+          type: "object",
+          additionalProperties: true,
+          required: ["booking_id", "status"],
+          properties: {
+            booking_id: { type: "string" },
+            status: { type: "string", enum: ["cancelled"] },
+            refund_amount: {
+              type: "string",
+              description:
+                "Decimal string. May be '0.00' for non-refundable fares (compensation-kind is best-effort).",
+            },
+            refund_currency: { type: "string", minLength: 3, maxLength: 3 },
+            cancelled_at: { type: "string", format: "date-time" },
+            already_cancelled: {
+              type: "boolean",
+              description:
+                "Present and true when this is an idempotent repeat of a prior cancel.",
+            },
+          },
+        },
+
         // Error envelope — stable across all tool routes.
         ErrorEnvelope: {
           type: "object",
@@ -461,6 +549,14 @@ export async function GET() {
         ConfirmationRequired: {
           description:
             "summary_hash did not match server-computed hash; user must re-confirm.",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorEnvelope" },
+            },
+          },
+        },
+        BookingNotFound: {
+          description: "Unknown booking_id on this agent.",
           content: {
             "application/json": {
               schema: { $ref: "#/components/schemas/ErrorEnvelope" },
