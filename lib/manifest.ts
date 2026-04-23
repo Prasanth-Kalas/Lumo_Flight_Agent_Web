@@ -6,18 +6,13 @@
  * does — not *how* — and declares the PII scope and SLA the router will
  * enforce.
  *
- * URLs must be absolute (AgentManifestSchema enforces z.string().url()),
- * so we derive them from `PUBLIC_BASE_URL`. Set that env in Vercel to the
- * public hostname; in dev it defaults to http://localhost:3002.
+ * URLs must be absolute (AgentManifestSchema enforces z.string().url()).
+ * Base URL resolution lives in lib/public-base-url.ts so we share the
+ * same fallback chain with app/openapi.json/route.ts.
  */
 
 import { defineManifest, type AgentManifest } from "@lumo/agent-sdk";
-
-function publicBaseUrl(): string {
-  const raw = process.env.PUBLIC_BASE_URL?.trim();
-  if (raw && raw.length > 0) return raw.replace(/\/+$/, "");
-  return "http://localhost:3002";
-}
+import { publicBaseUrl } from "./public-base-url.js";
 
 /**
  * Build the manifest at request time so `PUBLIC_BASE_URL` can be changed

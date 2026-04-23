@@ -20,14 +20,9 @@
  */
 
 import { NextResponse } from "next/server";
+import { publicBaseUrl } from "../../lib/public-base-url.js";
 
 export const dynamic = "force-dynamic";
-
-function publicBaseUrl(): string {
-  const raw = process.env.PUBLIC_BASE_URL?.trim();
-  if (raw && raw.length > 0) return raw.replace(/\/+$/, "");
-  return "http://localhost:3002";
-}
 
 export async function GET() {
   const base = publicBaseUrl();
