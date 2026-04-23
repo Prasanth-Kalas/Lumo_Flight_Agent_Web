@@ -1,0 +1,12 @@
+html,
+body {
+  background: #f7f7f5;
+  color: #0b0e14;
+}
+code {
+  background: rgba(11, 14, 20, 0.06);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+}
