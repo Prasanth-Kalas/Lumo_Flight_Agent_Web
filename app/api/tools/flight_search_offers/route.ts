@@ -9,7 +9,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { searchOffers } from "@/lib/duffel-stub";
+import { searchOffers } from "@/lib/duffel";
 import { badRequestFromZod, errorResponse, stripEnvelopeKeys } from "@/lib/http";
 
 // IATA code: 3 uppercase letters. We also accept lowercase and uppercase it.
@@ -73,7 +73,7 @@ export async function POST(req: Request) {
     }
   }
 
-  const offers = searchOffers(parsed.data);
+  const offers = await searchOffers(parsed.data);
   // Intentionally NOT calling attachSummary here. Search returns N
   // candidate offers; a confirmation envelope must refer to the specific
   // itinerary the user is about to book. We force the shell to round-trip

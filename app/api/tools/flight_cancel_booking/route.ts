@@ -31,7 +31,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { cancelBooking } from "@/lib/duffel-stub";
+import { cancelBooking } from "@/lib/duffel";
 import { badRequestFromZod, errorResponse, stripEnvelopeKeys } from "@/lib/http";
 
 const BodySchema = z

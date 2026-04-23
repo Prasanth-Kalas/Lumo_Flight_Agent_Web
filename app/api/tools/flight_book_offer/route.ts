@@ -23,7 +23,7 @@ import {
   bookOffer,
   getStoredOffer,
   itineraryHash,
-} from "@/lib/duffel-stub";
+} from "@/lib/duffel";
 import { badRequestFromZod, errorResponse, stripEnvelopeKeys } from "@/lib/http";
 
 const PassengerSchema = z

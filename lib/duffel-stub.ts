@@ -238,6 +238,22 @@ export function getStoredOffer(offer_id: string): FlightOffer | null {
 }
 
 /**
+ * Insert an externally-sourced offer (e.g. from the real Duffel API)
+ * into this module's offerStore so the confirmation-gate lookup in
+ * `flight_book_offer` (which calls `getStoredOffer`) can find it.
+ *
+ * We deliberately round-trip through the same store for both stub and
+ * real offers — that's what keeps the book/cancel paths identical
+ * regardless of source, and it keeps the TTL-based expiry behaviour
+ * consistent across the façade.
+ */
+export function registerOffer(offer: FlightOffer): void {
+  const now = Date.now();
+  sweepExpired(now);
+  offerStore.set(offer.offer_id, { offer, stored_at: now });
+}
+
+/**
  * Re-price an offer. In the stub we just return the same offer with a
  * refreshed `expires_at`. The real Duffel call may return a different
  * `total_amount` (fares move) — the shell then has to re-confirm if it

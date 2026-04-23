@@ -12,7 +12,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { attachSummary } from "@lumo/agent-sdk";
 
-import { canonicalItinerarySummary, priceOffer } from "@/lib/duffel-stub";
+import { canonicalItinerarySummary, priceOffer } from "@/lib/duffel";
 import { badRequestFromZod, errorResponse, stripEnvelopeKeys } from "@/lib/http";
 
 const BodySchema = z
@@ -34,7 +34,7 @@ export async function POST(req: Request) {
   const parsed = BodySchema.safeParse(stripEnvelopeKeys(raw));
   if (!parsed.success) return badRequestFromZod(parsed.error);
 
-  const priced = priceOffer(parsed.data.offer_id);
+  const priced = await priceOffer(parsed.data.offer_id);
   if (priced === "not_found") {
     return errorResponse(
       "offer_not_found",
