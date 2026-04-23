@@ -13,7 +13,7 @@
     "clean": "rm -rf .next *.tsbuildinfo"
   },
   "dependencies": {
-    "@lumo/agent-sdk": "file:../Lumo_Agent_SDK",
+    "@lumo/agent-sdk": "git+https://github.com/Prasanth-Kalas/Lumo_Agent_SDK.git#5951be5aba4cff200a61b110579bf8ccd71118bc",
     "next": "14.2.15",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
