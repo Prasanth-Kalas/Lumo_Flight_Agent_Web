@@ -20,7 +20,7 @@
  */
 
 import { NextResponse } from "next/server";
-import { publicBaseUrl } from "../../lib/public-base-url.js";
+import { publicBaseUrl } from "../../lib/public-base-url";
 
 export const dynamic = "force-dynamic";
 

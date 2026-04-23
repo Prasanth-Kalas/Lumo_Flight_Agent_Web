@@ -12,7 +12,7 @@
  */
 
 import { defineManifest, type AgentManifest } from "@lumo/agent-sdk";
-import { publicBaseUrl } from "./public-base-url.js";
+import { publicBaseUrl } from "./public-base-url";
 
 /**
  * Build the manifest at request time so `PUBLIC_BASE_URL` can be changed
